@@ -13,3 +13,4 @@ def predict(reqest: Request, file:UploadFile=File(...)):
     image = Image.open(io.BytesIO(data))
     result = model.predict(image)
     return result
+print("hello")
