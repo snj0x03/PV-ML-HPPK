@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>프린터 부품 식별 AI</title>
+</head>
+<body>
+    <h1>프린터 부품 식별 시스템</h1>
+    <p>분석할 부품 사진을 업로드하세요.</p>
+
+    <!-- 이미지 업로드 양식 -->
+    <input type="file" id="imageInput" accept="image/*">
+    <button onclick="uploadImage()">분석 시작</button>
+
+    <hr>
+    <h3>분석 결과</h3>
+    <div id="result">
+        <!-- 여기에 결과가 출력됩니다 -->
+    </div>
+
+    <script>
+        async function uploadImage() {
+            const fileInput = document.getElementById('imageInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (fileInput.files.length === 0) {
+                alert("파일을 선택해주세요!");
+                return;
+            }
+
+            // 데이터를 전송할 폼 생성
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            resultDiv.innerHTML = "분석 중...";
+
+            try {
+                // 백엔드 /predict 엔드포인트로 데이터 전송
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                // 결과 화면에 뿌려주기
+                resultDiv.innerHTML = `
+                    <p><b>부품명:</b> ${data.part_name}</p>
+                    <p><b>시리얼:</b> ${data.serial_number}</p>
+                    <p><b>정확도:</b> ${(data.confidence * 100).toFixed(2)}%</p>
+                    <p><b>메시지:</b> ${data.message}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = "에러 발생: " + error;
+            }
+        }
+    </script>
+</body>
+</html>
