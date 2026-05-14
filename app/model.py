@@ -1,6 +1,1 @@
-def mock_predict(image):
-    # AI가 작동하는 척 1초 대기
-    import time
-    time.sleep(1) 
-    # 가짜 결과 반환
-    return {"part_name": "가짜 롤러", "serial": "FAKE-123", "conf": 0.99}
+#ai모델 완성됐을시, 이곳에 저장. 서버가 시작되었을때, 모델을 서버 오픈 마다 최초 한번만 메모리에 올리도록 지시
