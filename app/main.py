@@ -1,5 +1,5 @@
 
-import os
+import os, io, torch
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -7,17 +7,17 @@ from typing import List
 
 app = FastAPI()
 
-# 현재 파일의 절대 경로를 파악하여 index.html 위치를 잡습니다.
+# 현재 파일의 절대 경로를 파악하여 index.html 위치를 잡습니다. 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 1. 데이터 규격 정의 (응답용)
+# 1. 데이터 규격 정의 (응답용) defining Data Specifications
 class AnalysisResult(BaseModel):
     part_name: str
     serial_number: str
     confidence: float
     message: str
 
-# 2. 임시 데이터베이스 (부품 일부만)
+# 2. 임시 데이터베이스 (부품 일부만) Temporary DataBase(some of parts) 
 predict_db = {
     "part1": {"name": "SVC_HP LaserJet Fuser 220V Kit", "serial": "5PN77-67001"},
     "part2": {"name": "SVC_HP LaserJet CYM Managed Imaging Drum", "serial": "W9078-67001"},
@@ -62,7 +62,7 @@ async def predict_part(file: UploadFile = File(...),
     filename = file.filename.lower()
 
 
-    # [가짜 로직] 들어간 이름에 따라 결과가 출력되게 끔 설정.
+    # [임시 로직] 들어간 이름에 따라 결과가 출력되게 끔 설정.
     if "part1" in filename:
         detected_key = "part1"
     elif "part2" in filename:
