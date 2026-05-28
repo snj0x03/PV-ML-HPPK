@@ -47,3 +47,5 @@ Thumbs.db
 
 fastapi-venv/
 app/printer_parts.db
+
+app/__pycache__/
