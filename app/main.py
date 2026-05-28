@@ -77,7 +77,7 @@ async def predict_part(file: UploadFile = File(...),
             part_name=info["name"],
             serial_number=info["serial"],
             confidence=1.0,
-            message=f"파일명({filename}) 부품 식별이 끝났습니다."
+            message=f"부품 식별이 끝났습니다."
         )
     else:
         return AnalysisResult(

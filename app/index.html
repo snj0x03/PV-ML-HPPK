@@ -1,57 +1,180 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>프린터 부품 식별 AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부품 인식 AI 테스트 시스템</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h2 { text-align: center; color: #4A5568; }
+        
+        /* 드래그 앤 드롭 및 이미지 표시 구역 */
+        .upload-zone {
+            border: 3px dashed #CBD5E0;
+            border-radius: 12px;
+            background-color: #fff;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .upload-zone.dragover {
+            border-color: #4299E1;
+            background-color: #EBF8FF;
+        }
+        .upload-zone p { color: #718096; text-align: center; padding: 20px; }
+        
+        /* 프리뷰 및 결과 이미지 스타일 */
+        .upload-zone img {
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            display: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4299E1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #3182CE; }
+        
+        /* 결과창 스타일 */
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #edf2f7;
+            border-radius: 8px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>프린터 부품 식별 시스템</h1>
-    <p>분석할 부품 사진을 업로드하세요.</p>
 
-    <!-- 이미지 업로드 양식 -->
-    <input type="file" id="imageInput" accept="image/*">
-    <button onclick="uploadImage()">분석 시작</button>
+    <h2>프린터 부품 식별 시스템</h2>
 
-    <hr>
-    <h3>분석 결과</h3>
-    <div id="result">
-        <!-- 여기에 결과가 출력됩니다 -->
+    <!-- [요청사항 1 & 2] 드래그앤드롭 구역 및 이미지 생성 칸 -->
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <p id="dropText">📸 Drag & Drop your Image or <br>Click the button to upload your Image.</p>
+        <img id="imagePreview" alt="부품 이미지 영역">
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    </div>
+
+    <button onclick="uploadAndAnalyze()">Start to detect</button>
+
+    <div class="result-box" id="resultBox">
+        <h3>Result</h3>
+        <p><b>Part name:</b> <span id="partName">-</span></p>
+        <p><b>Serial number:</b> <span id="serialNumber">-</span></p>
+        <p><b>accuracy:</b> <span id="confidence">-</span></p>
+        <p style="font-size: 13px; color: #666;"><span id="message"></span></p>
     </div>
 
     <script>
-        async function uploadImage() {
-            const fileInput = document.getElementById('imageInput');
-            const resultDiv = document.getElementById('result');
-            
-            if (fileInput.files.length === 0) {
-                alert("파일을 선택해주세요!");
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const dropText = document.getElementById('dropText');
+        const imagePreview = document.getElementById('imagePreview');
+        const resultBox = document.getElementById('resultBox');
+        
+        let selectedFile = null;
+
+        // --- 드래그 앤 드롭 이벤트 처리 ---
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        // 파일 선택 시 칸 내부에 이미지를 띄우는 로직
+        function handleFile(file) {
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = function() {
+                imagePreview.src = reader.result;
+                imagePreview.style.display = 'block';
+                dropText.style.style.display = 'none'; // 글씨 숨기기
+            }
+        }
+
+        // --- 백엔드 통신 ---
+        async function uploadAndAnalyze() {
+            if (!selectedFile) {
+                alert("먼저 이미지를 업로드해주세요!");
                 return;
             }
 
-            // 데이터를 전송할 폼 생성
             const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
+            formData.append("file", selectedFile);
+            formData.append("part_key", "part1"); // 임시 테스트용 파라미터
 
-            resultDiv.innerHTML = "분석 중...";
+            document.getElementById('partName').innerText = "분석 중...";
+            resultBox.style.display = 'block';
 
             try {
-                // 백엔드 /predict 엔드포인트로 데이터 전송
                 const response = await fetch('/predict', {
                     method: 'POST',
                     body: formData
                 });
-
                 const data = await response.json();
 
-                // 결과 화면에 뿌려주기
-                resultDiv.innerHTML = `
-                    <p><b>부품명:</b> ${data.part_name}</p>
-                    <p><b>시리얼:</b> ${data.serial_number}</p>
-                    <p><b>정확도:</b> ${(data.confidence * 100).toFixed(2)}%</p>
-                    <p><b>메시지:</b> ${data.message}</p>
-                `;
+                // 텍스트 결과 매핑
+                document.getElementById('partName').innerText = data.part_name;
+                document.getElementById('serialNumber').innerText = data.serial_number;
+                document.getElementById('confidence').innerText = (data.confidence * 100) + "%";
+                document.getElementById('message').innerText = data.message;
+
+                // [중요] 나중에 AI가 처리한 BBox 이미지를 백엔드가 보내주면 
+                // 아래 주석을 풀어서 프리뷰 이미지를 결과 이미지로 교체할 것입니다.
+                // imagePreview.src = data.result_image_url;
+
             } catch (error) {
-                resultDiv.innerHTML = "에러 발생: " + error;
+                alert("서버 통신 오류 발생");
+                console.error(error);
             }
         }
     </script>

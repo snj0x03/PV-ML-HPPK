@@ -44,3 +44,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+fastapi-venv/
+app/printer_parts.db
