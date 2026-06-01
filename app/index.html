@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>부품 인식 AI 테스트 시스템</title>
     <style>
         body {
@@ -74,7 +73,6 @@
 
     <h2>프린터 부품 식별 시스템</h2>
 
-    <!-- [요청사항 1 & 2] 드래그앤드롭 구역 및 이미지 생성 칸 -->
     <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p id="dropText">📸 Drag & Drop your Image or <br>Click the button to upload your Image.</p>
         <img id="imagePreview" alt="부품 이미지 영역">
@@ -137,7 +135,7 @@
             reader.onloadend = function() {
                 imagePreview.src = reader.result;
                 imagePreview.style.display = 'block';
-                dropText.style.style.display = 'none'; // 글씨 숨기기
+                dropText.style.display = 'none'; // 💡 오타 수정 (style.style -> style)
             }
         }
 
@@ -150,7 +148,6 @@
 
             const formData = new FormData();
             formData.append("file", selectedFile);
-            formData.append("part_key", "part1"); // 임시 테스트용 파라미터
 
             document.getElementById('partName').innerText = "분석 중...";
             resultBox.style.display = 'block';
@@ -165,12 +162,17 @@
                 // 텍스트 결과 매핑
                 document.getElementById('partName').innerText = data.part_name;
                 document.getElementById('serialNumber').innerText = data.serial_number;
-                document.getElementById('confidence').innerText = (data.confidence * 100) + "%";
+                // 정확도를 보기 좋게 반올림하여 %로 출력 (예: 0.9452 -> 94.52%)
+                document.getElementById('confidence').innerText = (data.confidence * 100).toFixed(2) + "%";
                 document.getElementById('message').innerText = data.message;
 
-                // [중요] 나중에 AI가 처리한 BBox 이미지를 백엔드가 보내주면 
-                // 아래 주석을 풀어서 프리뷰 이미지를 결과 이미지로 교체할 것입니다.
-                // imagePreview.src = data.result_image_url;
+                // 🎯 [💡 적용 완료] AI가 처리한 BBox 이미지를 받아와 프리뷰 화면에 바로 덮어씌웁니다.
+                // 🎯 브라우저 캐시를 깨부수고 강제로 바운딩 박스 이미지로 교체합니다!
+                if (data.image_base64) {
+                    imagePreview.style.display = 'none'; // 잠시 숨겼다가
+                    imagePreview.src = "data:image/jpeg;base64," + data.image_base64;
+                    imagePreview.style.display = 'block'; // 새 이미지로 다시 띄우기
+                }
 
             } catch (error) {
                 alert("서버 통신 오류 발생");

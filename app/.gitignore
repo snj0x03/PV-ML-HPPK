@@ -1,0 +1,11 @@
+# 1. 로보플로우 데이터셋 폴더 제외
+roboflow_data/
+
+printer_part.db
+
+
+fastapi-venv/
+.venv/
+**/__pycache__/
+.pytest_cache/
+.vscode/

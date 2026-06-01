@@ -1,88 +1,116 @@
 
-import os, io, torch
-from fastapi import FastAPI, File, UploadFile, Form
+import os
+import io
+import torch
+import base64  # 💡 이미지를 텍스트로 변환하기 위해 추가
+from fastapi import FastAPI, File, UploadFile, Depends
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List
+from sqlalchemy.orm import Session
+from PIL import Image
+
+from ultralytics import YOLO
+from database import SessionLocal, Part
 
 app = FastAPI()
-
-# 현재 파일의 절대 경로를 파악하여 index.html 위치를 지정.. 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 1. 데이터 규격 정의 (응답용) defining Data Specifications
+# 무적의 프로젝트 최상위 절대 경로 계산 (이사 가도 안 터짐)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best.pt")
+
+model = YOLO(MODEL_PATH)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# 💡 응답 규격에 바운딩 박스가 그려진 이미지 칸(image_base64)을 추가합니다!
 class AnalysisResult(BaseModel):
     part_name: str
     serial_number: str
+    model_number: str
     confidence: float
     message: str
+    image_base64: str  # 👈 프론트엔드에서 바로 <img src="...">로 띄울 수 있는 데이터
 
-# 2. 임시 데이터베이스 (부품 일부만) Temporary DataBase(some of parts) 
-predict_db = {
-    "part1": {"name": "SVC_HP LaserJet Fuser 220V Kit", "serial": "5PN77-67001"},
-    "part2": {"name": "SVC_HP LaserJet CYM Managed Imaging Drum", "serial": "W9078-67001"},
-    "part3": {"name": "SVC_HP LaserJet Black Managed Imaging Drum", "serial": "W9077-67001"},
-    "part4": {"name": "SVC_HP LaserJet Toner Collection Unit", "serial": "6SB85-67001"},
-    "part5": {"name": "Waste toner duct unit", "serial": "JC96-13015A"},
-    "part6": {"name": "SVC_HP LaserJet Trays 2-x Roller Kit", "serial": "5PN66-67001"},
-    "part7": {"name": "SVC_HP LaserJet Yellow Developer Unit", "serial": "5PN73-67003"},
-    "part8": {"name": "Hard disk 500GB SED", "serial": "933853-011"},
-    "part9": {"name": "HP LaserJet ADF Maintenance Kit", "serial": "5RC00-67001"},
-    "part10": {"name": "Main PCA (Formatter)", "serial": "6CF14-67011"},
-    "part11": {"name": "Laser scanner unit (LSU)", "serial": "JC97-05149A"},
-    "part12": {"name": "Control panel (10.1 inch)", "serial": "5QK42-60104"},
-    "part13": {"name": "SVC_T2 transfer assembly", "serial": "5PN80-67002"},
-    "part14": {"name": "Low Voltage Power Supply (LVPS), 220V", "serial": "JC44-00150C"},
-    "part15": {"name": "High Voltage Power Supply (HVPS)", "serial": "JC44-00240C"},
-    "part16": {"name": "SVC_HPLJ 300ipm300shtFlw DADFhighspdScnr", "serial": "5QK39-67002"},
-    "part17": {"name": "ADF Whole Unit Kit, Valiant A3", "serial": "5QK08-67014"},
-    "part18": {"name": "Fuser drive board (FDB), 220V", "serial": "JC44-00236C"},
-    "part19": {"name": "SVC-Flat Cable, Faro SICB 50pin", "serial": "5QK08-67011"},
-    "part20": {"name": "SVC-Flat Cable, Faro SICB 68pin", "serial": "5QK08-67012"},
-    "part21": {"name": "FLAT CABLE-LSU", "serial": "5QK03-50003"},
-    "part22": {"name": "Exit unit", "serial": "JC90-01856A"},
-    "part23": {"name": "Right door assembly", "serial": "JC95-02247A"},
-    "part24": {"name": "Front cover assembly", "serial": "6ER04-61001"},
-    "part25": {"name": "Registration unit assembly", "serial": "8GS05-60128"}
-}
-
-# 3. 메인 페이지 (HTML 서빙)
 @app.get("/")
 async def main_page():
     return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
-# 4. 이미지 업로드 및 분석 엔드포인트
 @app.post("/predict", response_model=AnalysisResult)
-async def predict_part(file: UploadFile = File(...),
-    # [실습] 실제로는 여기서 파일을 저장하거나 AI 모델에게 전달할 예정..
-    part_key: str = Form (None)):
-    #프론트에서 보낸 부품 키를 받는 부분. 일단 None을 박아 두었으나, 나중에 ...으로 수정해야함
-    print(f"수신된 파일: {file.filename}")
+async def predict_part(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    print(f"📸 AI 분석 및 시각화 요청 수신: {file.filename}")
     
-    filename = file.filename.lower()
-
-
-    # [임시 로직] 들어간 이름에 따라 결과가 출력되게 끔 설정.
-    if "part1" in filename:
-        detected_key = "part1"
-    elif "part2" in filename:
-        detected_key = "part2"
-    elif "part3" in filename:
-        detected_key = "part3"
-
-    # 4. 결과 도출
-    if detected_key and detected_key in predict_db:
-        info = predict_db[detected_key]
+    try:
+        image_bytes = await file.read()
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        
+        results = model(image, conf=0.01)
+        result = results[0]
+        
+        # 🟢 기본값으로 원본 이미지를 Base64로 인코딩해둡니다 (못 찾았을 때를 대비)
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        
+        if len(result.boxes) > 0:
+            # 🎯 1. YOLO가 바운딩 박스를 그린 가상 이미지를 가져옵니다! (OpenCV BGR 배열 형태)
+            plotted_img_bgr = result.plot() 
+            
+            # 🎯 2. OpenCV 형태를 파이썬 이미지 객체(PIL)로 바꾼 뒤 RGB로 정렬합니다.
+            plotted_img_rgb = Image.fromarray(plotted_img_bgr[..., ::-1]) 
+            
+            # 🎯 3. 그려진 이미지를 메모리 버퍼에 JPEG로 세이브합니다.
+            buffered_plot = io.BytesIO()
+            plotted_img_rgb.save(buffered_plot, format="JPEG")
+            
+            # 🎯 4. 최종적으로 프론트엔드가 알아들을 수 있는 문자열로 변환(Encoding)합니다.
+            img_str = base64.b64encode(buffered_plot.getvalue()).decode("utf-8")
+            
+            # 가장 신뢰도 높은 첫 번째 부품 정보 추출
+            best_box = result.boxes[0]
+            class_id = int(best_box.cls[0].item())
+            confidence = float(best_box.conf[0].item())
+            
+            temp_db_name = f"YOLO_Class_{class_id}"
+            part_info = db.query(Part).filter(Part.part_name == temp_db_name).first()
+            
+            if part_info:
+                return AnalysisResult(
+                    part_name=part_info.part_name,
+                    serial_number=part_info.serial_number,
+                    model_number=part_info.model_number,
+                    confidence=round(confidence, 4),
+                    message="AI 부품 식별 및 바운딩 박스 시각화 완료!",
+                    image_base64=img_str  # 👈 박스가 그려진 이미지 전달
+                )
+            else:
+                return AnalysisResult(
+                    part_name=f"YOLO_Class_{class_id} (DB 미등록)",
+                    serial_number="N/A",
+                    model_number="N/A",
+                    confidence=round(confidence, 4),
+                    message="AI가 부품 박스는 쳤으나 DB에 상세 정보가 없습니다.",
+                    image_base64=img_str
+                )
+        else:
+            return AnalysisResult(
+                part_name="Unknown",
+                serial_number="N/A",
+                model_number="N/A",
+                confidence=0.0,
+                message="사진에서 부품을 발견하지 못해 박스를 그리지 못했습니다.",
+                image_base64=img_str  # 원본 이미지 전달
+            )
+            
+    except Exception as e:
+        print(f"🚨 에러 발생: {str(e)}")
         return AnalysisResult(
-            part_name=info["name"],
-            serial_number=info["serial"],
-            confidence=1.0,
-            message=f"부품 식별이 끝났습니다."
-        )
-    else:
-        return AnalysisResult(
-            part_name="Unknown",
-            serial_number="0000-0000",
-            confidence=0.0,
-            message="사진을 인식하지 못했습니다. 다른 사진을 올려주세요."
+            part_name="Error", serial_number="Error", model_number="Error",
+            confidence=0.0, message=f"처리 중 오류 발생: {str(e)}", image_base64=""
         )
