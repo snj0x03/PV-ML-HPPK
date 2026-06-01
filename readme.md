@@ -51,7 +51,7 @@ PV-ML-HPPK/
 │   ├── tests.py           # Test suite (stub)
 │   └── utils.py           # Shared utilities (stub)
 ├── models/
-│   └── best.pt            # Trained YOLOv8 weights (not tracked in git)
+│   └── best.pt            # Trained YOLOv11 weights (not tracked in git)
 ├── config.yml             # Configuration file
 ├── requirements.txt       # Python dependencies
 └── readme.md
@@ -106,7 +106,7 @@ pip install -r requirements.txt
 
 **4. Place the trained model**
 
-Put the trained YOLOv8 weights at:
+Put the trained YOLOv11 weights at:
 
 ```
 models/best.pt
@@ -198,7 +198,7 @@ Run inference on an uploaded image.
 | `part_name` | string | Detected HP part name, or `"Unknown"` if nothing detected |
 | `serial_number` | string | Part serial number from DB, or `"N/A"` |
 | `model_number` | string | Model number from DB, or `"N/A"` |
-| `confidence` | float | YOLOv8 detection confidence (0.0–1.0) |
+| `confidence` | float | YOLOv11 detection confidence (0.0–1.0) |
 | `message` | string | Status message describing the result |
 | `image_base64` | string | Base64-encoded JPEG of the image with bounding boxes drawn; original image returned if nothing was detected |
 
