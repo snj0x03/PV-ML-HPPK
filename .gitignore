@@ -53,5 +53,6 @@ app/detection_images/
 
 # IDE
 .vscode/
+.claude/
 
 **/__pycache__/
