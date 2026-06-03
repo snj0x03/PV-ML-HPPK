@@ -50,7 +50,7 @@ PV-ML-HPPK/
 └── readme.md
 ```
 
-> `app/printer_parts.db` and `app/detection_images/` are created automatically on first run and are not tracked in git.
+> `app/printer_parts.db` and `app/detection_images/` are created automatically on first run and are not tracked in git. Both are volume-mounted in Docker — data persists across container restarts.
 
 ---
 
