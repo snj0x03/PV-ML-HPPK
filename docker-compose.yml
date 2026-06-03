@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - ./models:/workspace/models
+      - ./app/printer_parts.db:/workspace/app/printer_parts.db

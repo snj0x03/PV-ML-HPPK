@@ -46,6 +46,12 @@ Thumbs.db
 *.swo
 
 fastapi-venv/
-app/printer_parts.db
 
-app/__pycache__/
+# App runtime data
+app/printer_parts.db
+app/detection_images/
+
+# IDE
+.vscode/
+
+**/__pycache__/

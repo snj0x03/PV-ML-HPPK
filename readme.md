@@ -1,6 +1,6 @@
 # PV-ML-HPPK
 
-HP LaserJet printer part identification system using YOLO11 object detection. Upload a photo of a printer part; the system detects it, draws a bounding box, and returns the part name, serial number, and confidence score from a local database.
+HP LaserJet printer part identification system using YOLOv11 object detection. Upload a photo of a printer part; the system detects it, draws a bounding box, and returns the part name, serial number, and confidence score.
 
 ---
 
@@ -9,12 +9,10 @@ HP LaserJet printer part identification system using YOLO11 object detection. Up
 - [Overview](#overview)
 - [Project Structure](#project-structure)
 - [Requirements](#requirements)
-- [Setup](#setup)
-- [Database Initialization](#database-initialization)
-- [Running the Server](#running-the-server)
+- [Quick Start (Docker)](#quick-start-docker)
+- [Local Development Setup](#local-development-setup)
 - [API Reference](#api-reference)
-- [Frontend](#frontend)
-- [Docker](#docker)
+- [Database](#database)
 - [Model](#model)
 - [Part Classes](#part-classes)
 
@@ -24,9 +22,9 @@ HP LaserJet printer part identification system using YOLO11 object detection. Up
 
 The system is built around three components:
 
-1. **YOLO11 model** (`models/best.pt`) — trained to detect 40 HP LaserJet printer part classes from images.
-2. **FastAPI backend** (`app/main.py`) — receives image uploads, runs inference, annotates the image with bounding boxes, and returns structured JSON including a base64-encoded annotated image.
-3. **SQLite database** (`app/printer_parts.db`) — maps YOLO class IDs to real part names and serial numbers.
+1. **YOLOv11 model** (`models/best.pt`) — trained to detect 40 HP LaserJet printer part classes from images.
+2. **FastAPI backend** (`app/main.py`) — receives image uploads, runs inference, annotates the image with bounding boxes, logs results to the database, and returns structured JSON.
+3. **SQLite database** (`app/printer_parts.db`) — maps YOLO class IDs to real part names and serial numbers. Auto-created on first run.
 
 ---
 
@@ -35,53 +33,81 @@ The system is built around three components:
 ```
 PV-ML-HPPK/
 ├── app/
-│   ├── main.py            # FastAPI application and /predict endpoint
-│   ├── database.py        # SQLAlchemy ORM models and DB engine setup
-│   ├── utils.py           # YOLO inference helper (process_and_predict)
-│   ├── db_uploader.py     # Imports Roboflow YOLO-format dataset into the DB
-│   ├── update_part.py     # Updates DB entries with real part names and serial numbers
-│   ├── sdd.py             # Standalone YOLO model load and predict demo
-│   ├── index.html         # Frontend UI (served at GET /)
-│   ├── Dockerfile         # Docker build definition
-│   └── .gitignore         # Excludes roboflow_data/, DB file, venv
-├── src/
-│   ├── train.py           # Training script (stub)
-│   ├── eval.py            # Evaluation script (stub)
-│   ├── load.py            # Data loading script (stub)
-│   ├── tests.py           # Test suite (stub)
-│   └── utils.py           # Shared utilities (stub)
+│   ├── main.py          # FastAPI app — /predict, /feedback, /admin/clear-db
+│   ├── database.py      # SQLAlchemy ORM models and DB engine
+│   ├── seed_db.py       # Seeds 40 HP parts into DB on startup
+│   ├── Dockerfile
+│   └── static/
+│       ├── index.html   # Frontend UI
+│       ├── style.css
+│       ├── hp_logo.png
+│       └── woosong_logo.png
 ├── models/
-│   └── best.pt            # Trained YOLOv11 weights (not tracked in git)
-├── config.yml             # Configuration file
-├── requirements.txt       # Python dependencies
+│   └── best.pt          # YOLOv11 weights (not tracked in git — place manually)
+├── docker-compose.yml
+├── .dockerignore
+├── requirements.txt
 └── readme.md
 ```
+
+> `app/printer_parts.db` and `app/detection_images/` are created automatically on first run and are not tracked in git.
 
 ---
 
 ## Requirements
 
 - Python 3.10+
-- PyTorch 2.12+ (CPU or CUDA)
-- See `requirements.txt` for the full pinned dependency list.
+- `models/best.pt` — trained YOLOv11 weights (obtain separately)
 
 Key packages:
 
-| Package | Version | Purpose |
-|---|---|---|
-| `ultralytics` | 8.4.58 | YOLO11 model inference |
-| `fastapi` | 0.136.3 | Web framework |
-| `uvicorn` | 0.48.0 | ASGI server |
-| `sqlalchemy` | 2.0.50 | ORM / SQLite access |
-| `pillow` | 12.2.0 | Image loading and conversion |
-| `torch` | 2.12.0 | Deep learning backend |
-| `torchvision` | 0.27.0 | Vision utilities |
+| Package | Purpose |
+|---|---|
+| `ultralytics` | YOLOv11 model inference |
+| `fastapi` | Web framework |
+| `uvicorn` | ASGI server |
+| `sqlalchemy` | ORM / SQLite |
+| `pillow` | Image processing |
 
 ---
 
-## Setup
+## Quick Start (Docker)
 
-**1. Clone the repository**
+The recommended way to run the service. Requires Docker and Docker Compose.
+
+**1. Place the model file**
+
+```
+models/best.pt
+```
+
+**2. Start the service**
+
+```bash
+docker compose up --build
+```
+
+On startup, the container automatically:
+- Seeds the database with 40 HP part entries
+- Starts the web server
+
+**3. Open the app**
+
+```
+http://localhost:8000
+```
+
+To stop:
+
+```bash
+docker compose down
+```
+
+---
+
+## Local Development Setup
+
+**1. Clone and enter the repo**
 
 ```bash
 git clone <repo-url>
@@ -91,11 +117,11 @@ cd PV-ML-HPPK
 **2. Create and activate a virtual environment**
 
 ```bash
-python -m venv fastapi-venv
+python -m venv venv
 # Windows
-fastapi-venv\Scripts\activate
+venv\Scripts\activate
 # Linux / macOS
-source fastapi-venv/bin/activate
+source venv/bin/activate
 ```
 
 **3. Install dependencies**
@@ -104,62 +130,28 @@ source fastapi-venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**4. Place the trained model**
-
-Put the trained YOLOv11 weights at:
+**4. Place the model file**
 
 ```
 models/best.pt
 ```
 
-The server will fail to start if this file is missing.
-
----
-
-## Database Initialization
-
-The database stores the mapping between YOLO class IDs and real HP part names and serial numbers. Run these two scripts once before starting the server for the first time.
-
-**Step 1 — Create the schema and import dataset images**
-
-Place your Roboflow-exported dataset (YOLO v8 format) at:
-
-```
-app/roboflow_data/train/
-    images/   ← .jpg / .jpeg / .png files
-    labels/   ← matching .txt label files
-```
-
-Then run:
+**5. Initialize the database**
 
 ```bash
 cd app
-python db_uploader.py
+python seed_db.py
 ```
 
-This creates `printer_parts.db`, registers all images and bounding boxes, and creates part entries named `YOLO_Class_0` through `YOLO_Class_39`.
+This creates `printer_parts.db` and inserts 40 HP part entries. Safe to re-run — existing entries are skipped.
 
-**Step 2 — Update part entries with real names and serial numbers**
-
-```bash
-python update_part.py
-```
-
-This replaces the `YOLO_Class_N` placeholder names with the actual HP part names and serial numbers (e.g., class 0 becomes `SVC_HP LaserJet Fuser 220V Kit`, serial `5PN77-67001`).
-
-Both scripts are idempotent — re-running them is safe.
-
----
-
-## Running the Server
-
-From the `app/` directory:
+**6. Start the server**
 
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The server will be available at `http://localhost:8000`.
+Open `http://localhost:8000`.
 
 ---
 
@@ -167,7 +159,7 @@ The server will be available at `http://localhost:8000`.
 
 ### `GET /`
 
-Returns the frontend HTML page (`index.html`).
+Returns the frontend HTML page.
 
 ---
 
@@ -175,83 +167,113 @@ Returns the frontend HTML page (`index.html`).
 
 Run inference on an uploaded image.
 
-**Request**
+**Request** — `multipart/form-data`
 
-- Content-Type: `multipart/form-data`
-- Field: `file` — the image file (JPEG, PNG, etc.)
+| Field | Type | Description |
+|---|---|---|
+| `file` | file | Image file (JPEG, PNG, WEBP) |
 
 **Response**
 
 ```json
 {
+  "detection_id": 42,
   "part_name": "SVC_HP LaserJet Fuser 220V Kit",
   "serial_number": "5PN77-67001",
-  "model_number": "string",
   "confidence": 0.9452,
-  "message": "AI 부품 식별 및 바운딩 박스 시각화 완료!",
-  "image_base64": "<base64-encoded JPEG string>"
+  "message": "Part identified successfully.",
+  "image_base64": "<base64-encoded JPEG with bounding boxes>"
+}
+```
+
+| Field | Description |
+|---|---|
+| `detection_id` | ID of the saved detection log (used for feedback) |
+| `part_name` | Detected HP part name, or `"Unknown"` if nothing detected |
+| `serial_number` | SVC Part Number from DB, or `"N/A"` |
+| `confidence` | YOLOv11 confidence score (0.0–1.0) |
+| `message` | Status message |
+| `image_base64` | Annotated image with bounding boxes (original if no detection) |
+
+---
+
+### `POST /feedback`
+
+Submit a flag for an incorrect detection result.
+
+**Request** — `application/json`
+
+```json
+{
+  "detection_id": 42,
+  "is_correct": false,
+  "comment": "This is actually a fuser unit, not a drum."
 }
 ```
 
 | Field | Type | Description |
 |---|---|---|
-| `part_name` | string | Detected HP part name, or `"Unknown"` if nothing detected |
-| `serial_number` | string | Part serial number from DB, or `"N/A"` |
-| `model_number` | string | Model number from DB, or `"N/A"` |
-| `confidence` | float | YOLOv11 detection confidence (0.0–1.0) |
-| `message` | string | Status message describing the result |
-| `image_base64` | string | Base64-encoded JPEG of the image with bounding boxes drawn; original image returned if nothing was detected |
+| `detection_id` | int | ID from `/predict` response |
+| `is_correct` | bool | Whether the result was correct |
+| `comment` | string (optional) | Description of the error |
 
-**Example (curl)**
+**Response**
 
-```bash
-curl -X POST http://localhost:8000/predict \
-  -F "file=@part_photo.jpg"
+```json
+{
+  "message": "Feedback saved.",
+  "feedback_id": 7
+}
 ```
 
 ---
 
-## Frontend
+### `DELETE /admin/clear-db`
 
-The web UI is served at `GET /` and is a single HTML file (`app/index.html`) with no external dependencies.
+Delete all detection history — logs, bounding boxes, and saved result images. HP part data is preserved.
 
-Features:
-- Drag-and-drop or click-to-upload image selection
-- Image preview in the upload zone
-- On detection, the preview is replaced with the YOLO11 annotated image (bounding boxes drawn)
-- Results panel showing part name, serial number, and confidence percentage
+```bash
+curl -X DELETE http://localhost:8000/admin/clear-db
+```
+
+**Response**
+
+```json
+{
+  "message": "Detection history cleared. 12 result image(s) deleted. Parts are preserved."
+}
+```
 
 ---
 
-## Docker
+## Database
 
-Build and run the application in a container:
+The SQLite database (`app/printer_parts.db`) contains four tables:
 
-```bash
-cd app
-docker build -t pv-ml-hppk .
-docker run -p 8000:8000 pv-ml-hppk uvicorn main:app --host 0.0.0.0 --port 8000
-```
+| Table | Description |
+|---|---|
+| `parts` | 40 HP part entries (class_id, part_name, serial_number) |
+| `detection_logs` | One record per `/predict` call — filename, class, confidence, result image path |
+| `bounding_boxes` | All bounding boxes from each detection (YOLO normalized xywh format) |
+| `detection_feedbacks` | User-submitted flags for incorrect results |
 
-The Dockerfile is based on `ultralytics/ultralytics:latest` which includes PyTorch and CUDA support.
-
-Note: mount or copy `models/best.pt` into the container before running inference.
+The database is created and seeded automatically on startup. No manual setup required.
 
 ---
 
 ## Model
 
-The model file `models/best.pt` is a YOLO11 checkpoint trained on a Roboflow-annotated dataset of HP LaserJet printer parts. It is not tracked in this repository.
+`models/best.pt` is a YOLOv11 checkpoint trained on HP LaserJet printer part images. It is **not tracked in this repository** — place it manually before running.
 
-At server startup, the model is loaded once into memory and reused for all subsequent requests.
-
-Inference is run with `conf=0.01` (low confidence threshold) to maximize detection recall. The highest-confidence detection in each image is used for the final result.
+- Inference threshold: `conf=0.01` (low threshold to maximize recall)
+- All detected bounding boxes are saved to DB; the highest-confidence box is shown in the UI
+- Result images (with bounding boxes drawn) are saved to `app/detection_images/`
 
 ---
 
 ## Part Classes
 
-The YOLO11 model detects 40 HP LaserJet part classes (IDs 0–39). Full mapping defined in `app/update_part.py`.
+The model detects 40 HP LaserJet part classes (IDs 0–39).
 
 | Class ID | Part Name | Serial Number |
 |---|---|---|
