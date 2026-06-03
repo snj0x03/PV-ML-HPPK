@@ -10,3 +10,4 @@ services:
     volumes:
       - ./models:/workspace/models
       - ./app/printer_parts.db:/workspace/app/printer_parts.db
+      - ./app/detection_images:/workspace/app/detection_images
