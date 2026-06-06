@@ -17,12 +17,9 @@ ENV/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
 # ML / data
 data/
-*.pt
-*.pth
 *.ckpt
 *.h5
 *.pkl
