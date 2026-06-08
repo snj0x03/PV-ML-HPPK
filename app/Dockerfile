@@ -4,9 +4,13 @@ WORKDIR /workspace
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y sqlite3
 
 COPY app/ /workspace/app/
 COPY models/ /workspace/models/
+
+RUN mkdir -p app/data/
+RUN chmod -R 777 app/data/
 
 WORKDIR /workspace/app
 

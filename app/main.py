@@ -22,11 +22,11 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best.pt")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best_v11.pt")
 
 model = YOLO(MODEL_PATH)
 
-IMAGES_DIR = os.path.join(BASE_DIR, "detection_images")
+IMAGES_DIR = os.path.join(BASE_DIR, "data", "detection_images")
 os.makedirs(IMAGES_DIR, exist_ok=True)
 
 

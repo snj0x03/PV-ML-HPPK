@@ -45,8 +45,7 @@ Thumbs.db
 fastapi-venv/
 
 # App runtime data
-app/printer_parts.db
-app/detection_images/
+app/data/
 
 # IDE
 .vscode/
