@@ -22,7 +22,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best_v11_resume.pt")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best_v11.pt")
 
 model = YOLO(MODEL_PATH)
 
