@@ -41,10 +41,15 @@
                     <img id="imagePreview" alt="Part image" style="max-width:100%; max-height:280px; object-fit:contain; display:none; margin-top:1rem; border-radius:8px;">
                     <input type="file" id="fileInput" accept="image/*" style="display:none;">
                 </div>
-                <button class="btn btn-primary" id="analyzeBtn" onclick="uploadAndAnalyze()">
-                    <span id="btnText">Start Detection</span>
-                    <div class="spinner" id="spinner"></div>
-                </button>
+		<button class="btn btn-primary" id="analyzeBtn" onclick="uploadAndAnalyze()">
+		    <span id="btnText">Start Detection</span>
+		    <div class="spinner" id="spinner"></div>
+		</button>
+		<br>
+		<button class="btn btn-primary" id="analyzeClsBtn">
+		    <span id="btnText">Start Classification</span>
+		    <div class="spinner" id="spinner"></div>
+		</button>
             </div>
 
             <div class="card result-card" id="resultCard">
