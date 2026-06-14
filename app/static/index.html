@@ -52,7 +52,7 @@
                     <h2>Detection Result</h2>
                     <span class="confidence-badge none" id="confidenceBadge">-</span>
                 </div>
-                <div class="result-grid">
+                <div class="result-grid" id="resultList">
                     <div class="result-row">
                         <span class="result-label">Part Name</span>
                         <span class="result-value" id="partName">-</span>
@@ -68,20 +68,6 @@
                     <div class="result-row">
                         <span class="result-label">Status</span>
                         <span class="result-value" id="message">-</span>
-                    </div>
-                </div>
-                <div style="margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border);">
-                    <button class="btn btn-secondary" id="flagBtn" onclick="showCommentBox()">
-                        Incorrect Result 🚩
-                    </button>
-                    <div id="commentBox" style="display:none; margin-top:0.75rem;">
-                        <textarea id="commentInput" rows="3"
-                            placeholder="Please describe the error. (optional)"
-                            style="width:100%; padding:0.6rem 0.8rem; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:0.88rem; resize:vertical; font-family:inherit;"></textarea>
-                        <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                            <button class="btn btn-primary" style="flex:1; padding:0.6rem;" onclick="submitFeedback()">Submit Report</button>
-                            <button class="btn btn-secondary" style="padding:0.6rem 1rem;" onclick="hideCommentBox()">Cancel</button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -105,9 +91,7 @@
         const analyzeBtn   = document.getElementById('analyzeBtn');
         const spinner      = document.getElementById('spinner');
         const btnText      = document.getElementById('btnText');
-        const flagBtn      = document.getElementById('flagBtn');
-        const commentBox   = document.getElementById('commentBox');
-        const commentInput = document.getElementById('commentInput');
+	const container = document.getElementById('resultList');
 
         let selectedFile    = null;
         let lastDetectionId = null;
@@ -173,26 +157,6 @@
             }
         }
 
-        function showCommentBox() {
-            commentBox.style.display = 'block';
-            flagBtn.style.display    = 'none';
-        }
-
-        function hideCommentBox() {
-            commentBox.style.display = 'block';
-            flagBtn.style.display    = 'inline-flex';
-            commentBox.style.display = 'none';
-            commentInput.value       = '';
-        }
-
-        function resetFlagBtn() {
-            flagBtn.textContent      = 'Incorrect Result 🚩';
-            flagBtn.disabled         = false;
-            flagBtn.style.display    = 'inline-flex';
-            commentBox.style.display = 'none';
-            commentInput.value       = '';
-        }
-
         async function uploadAndAnalyze() {
             if (!selectedFile) {
                 alert('Please upload an image first.');
@@ -201,25 +165,33 @@
 
             setLoading(true);
             resultCard.style.display = 'block';
-            resetFlagBtn();
 
             const formData = new FormData();
             formData.append('file', selectedFile);
 
             try {
-                const response = await fetch('/predict', { method: 'POST', body: formData });
+                const response = await fetch('/detect', { method: 'POST', body: formData });
                 const data = await response.json();
+		
+		console.log(data);
 
-                lastDetectionId = data.detection_id;
+		container.textContent = "";
+		for(let i = 0; i < data.conf.length; i++) {
+		    const formattedString = `
+			<div class="result-row">
+		            <span class="result-value">${(100*data.conf[i]).toFixed(2)}%</span>
+			    <span class="result-value mono">${data.cls[i]}</span>
+			    <span class="result-value">${data.message[i]}</span>
+			</div>
+		    `;
+		    container.insertAdjacentHTML("beforeend", formattedString);
+		}
+		console.log(data.conf);
+		console.log(data.cls);
 
-                document.getElementById('partName').textContent     = data.part_name;
-                document.getElementById('serialNumber').textContent = data.serial_number;
-                document.getElementById('confidence').textContent   = (data.confidence * 100).toFixed(2) + '%';
-                document.getElementById('message').textContent      = data.message;
-                setBadge(data.confidence);
 
-                if (data.image_base64) {
-                    imagePreview.src = 'data:image/jpeg;base64,' + data.image_base64;
+		if (data.image) {
+                    imagePreview.src = 'data:image/jpeg;base64,' + data.image;
                     imagePreview.style.display = 'block';
                 }
             } catch (error) {
@@ -227,32 +199,6 @@
                 console.error(error);
             } finally {
                 setLoading(false);
-            }
-        }
-
-        async function submitFeedback() {
-            if (!lastDetectionId) return;
-
-            const comment = commentInput.value.trim() || null;
-
-            try {
-                const response = await fetch('/feedback', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ detection_id: lastDetectionId, is_correct: false, comment }),
-                });
-
-                if (response.ok) {
-                    commentBox.style.display = 'none';
-                    flagBtn.style.display    = 'inline-flex';
-                    flagBtn.textContent      = 'Reported ✓';
-                    flagBtn.disabled         = true;
-                } else {
-                    alert('Failed to submit feedback. Please try again.');
-                }
-            } catch (error) {
-                alert('A server error occurred. Please try again.');
-                console.error(error);
             }
         }
     </script>

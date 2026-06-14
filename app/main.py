@@ -6,13 +6,12 @@ from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from PIL import Image
 
 from ultralytics import YOLO
 from database import (
-    SessionLocal, Part, DetectionLog, DetectionFeedback, BoundingBox,
+        SessionLocal, DetectionLog, Part,
     init_db, clear_detection_history,
 )
 
@@ -22,7 +21,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best_v11.pt")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best_v11_resume.pt")
 
 model = YOLO(MODEL_PATH)
 
@@ -48,21 +47,6 @@ def get_db():
         db.close()
 
 
-class AnalysisResult(BaseModel):
-    detection_id: int
-    part_name: str
-    serial_number: str
-    confidence: float
-    message: str
-    image_base64: str
-
-
-class FeedbackRequest(BaseModel):
-    detection_id: int
-    is_correct: bool
-    comment: str | None = None
-
-
 @app.on_event("startup")
 async def startup():
     init_db()
@@ -73,9 +57,9 @@ async def main_page():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
-@app.post("/predict", response_model=AnalysisResult)
+@app.post("/detect")
 async def predict_part(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    print(f"[predict] request: {file.filename}")
+    print(f"[Predict] request: {file.filename}")
 
     try:
         image_bytes = await file.read()
@@ -85,113 +69,50 @@ async def predict_part(file: UploadFile = File(...), db: Session = Depends(get_d
         image.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-        results = model(image, conf=0.01)
-        result = results[0]
+        results = model(image, conf=0.25)
 
-        if len(result.boxes) > 0:
-            plotted_bgr = result.plot()
-            plotted_rgb = Image.fromarray(plotted_bgr[..., ::-1])
-            buf = io.BytesIO()
-            plotted_rgb.save(buf, format="JPEG")
-            img_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+        plotted_bgr = results[0].plot()
+        plotted_rgb = Image.fromarray(plotted_bgr[..., ::-1])
+        buf = io.BytesIO()
+        plotted_rgb.save(buf, format="JPEG")
+        img_str = base64.b64encode(buf.getvalue()).decode("utf-8")
 
-            saved_path = save_result_image(Image.fromarray(plotted_bgr[..., ::-1]), file.filename)
+        saved_path = save_result_image(Image.fromarray(plotted_bgr[..., ::-1]), file.filename)
 
-            # top-1 box (highest confidence — YOLO returns sorted by conf desc)
-            best_box = result.boxes[0]
-            class_id   = int(best_box.cls[0].item())
-            confidence = float(best_box.conf[0].item())
+        res = dict()
+        for result in results:
+            res["bboxes"] = result.boxes.xywhn.cpu().numpy().tolist()
+            res["confidences"] = result.boxes.conf.cpu().numpy().tolist()
+            res["classes"] = result.boxes.cls.cpu().numpy().tolist()
+        srl = []
+        msg = []
+        send = []
+        for i in range(len(res["classes"])):
+            qry = db.query(Part).filter(Part.class_id == res["classes"][i]).first()
+            srl.append(qry.serial_number)
+            msg.append(qry.part_desc)
+            send.append({
+                "class": qry.serial_number,
+                "confidence": res["confidences"][i],
+                "bbox": res["bboxes"][i]
+            })
+                        
+            
 
-            part_info = db.query(Part).filter(Part.class_id == class_id).first()
+        log = DetectionLog(
+            image_url=saved_path,
+            result=send
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
 
-            log = DetectionLog(
-                image_filename=file.filename,
-                class_id=class_id,
-                confidence=round(confidence, 4),
-                part_id=part_info.id if part_info else None,
-                result_image_path=saved_path,
-            )
-            db.add(log)
-            db.flush()  # get log.id before committing
-
-            xywhn = result.boxes.xywhn.cpu().numpy()
-            cls   = result.boxes.cls.cpu().numpy()
-            conf  = result.boxes.conf.cpu().numpy()
-            for i in range(len(result.boxes)):
-                db.add(BoundingBox(
-                    detection_log_id=log.id,
-                    class_id=int(cls[i]),
-                    confidence=round(float(conf[i]), 4),
-                    x_center=float(xywhn[i][0]),
-                    y_center=float(xywhn[i][1]),
-                    width=float(xywhn[i][2]),
-                    height=float(xywhn[i][3]),
-                ))
-
-            db.commit()
-            db.refresh(log)
-
-            if part_info:
-                return AnalysisResult(
-                    detection_id=log.id,
-                    part_name=part_info.part_name,
-                    serial_number=part_info.serial_number or "N/A",
-                    confidence=round(confidence, 4),
-                    message="Part identified successfully.",
-                    image_base64=img_str,
-                )
-            else:
-                return AnalysisResult(
-                    detection_id=log.id,
-                    part_name=f"Unregistered Part (Class {class_id})",
-                    serial_number="N/A",
-                    confidence=round(confidence, 4),
-                    message="Part detected but not found in the database.",
-                    image_base64=img_str,
-                )
-        else:
-            saved_path = save_result_image(image, file.filename)
-
-            log = DetectionLog(
-                image_filename=file.filename,
-                class_id=None,
-                confidence=0.0,
-                part_id=None,
-                result_image_path=saved_path,
-            )
-            db.add(log)
-            db.commit()
-            db.refresh(log)
-
-            return AnalysisResult(
-                detection_id=log.id,
-                part_name="Unknown",
-                serial_number="N/A",
-                confidence=0.0,
-                message="No part detected in the image.",
-                image_base64=img_str,
-            )
+        return {"image": img_str, "conf": res["confidences"], "cls": srl, "message": msg}
 
     except Exception as e:
         print(f"[predict] error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
-
-@app.post("/feedback")
-async def submit_feedback(body: FeedbackRequest, db: Session = Depends(get_db)):
-    log = db.query(DetectionLog).filter(DetectionLog.id == body.detection_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Detection log not found.")
-
-    feedback = DetectionFeedback(
-        detection_log_id=body.detection_id,
-        is_correct=body.is_correct,
-        comment=body.comment,
-    )
-    db.add(feedback)
-    db.commit()
-
-    return {"message": "Feedback saved.", "feedback_id": feedback.id}
 
 
 @app.delete("/admin/clear-db")

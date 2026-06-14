@@ -56,41 +56,7 @@ PARTS_DATA = {
 }
 
 
-def migrate():
-    """Upgrade an existing DB to the current schema without data loss."""
-    inspector = inspect(engine)
-    existing_tables = inspector.get_table_names()
-
-    with engine.begin() as conn:
-        # Drop old bounding_boxes if it used image_id (pre-refactor schema)
-        if "bounding_boxes" in existing_tables:
-            old_cols = [c["name"] for c in inspector.get_columns("bounding_boxes")]
-            if "image_id" in old_cols:
-                conn.execute(text("DROP TABLE bounding_boxes"))
-                print("  [migrate] bounding_boxes (old schema) dropped -> will be recreated")
-
-        if "images" in existing_tables:
-            conn.execute(text("DROP TABLE images"))
-            print("  [migrate] images table dropped")
-
-    # Add missing columns to existing tables; silently skip if already present
-    addable = [
-        ("parts",          "class_id INTEGER"),
-        ("parts",          "serial_number VARCHAR(100)"),
-        ("detection_logs", "result_image_path VARCHAR(500)"),
-    ]
-    for table, col_def in addable:
-        col_name = col_def.split()[0]
-        try:
-            with engine.begin() as conn:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_def}"))
-            print(f"  [migrate] {table}.{col_name} added")
-        except Exception:
-            pass  # column already exists
-
-
 def seed():
-    migrate()
     init_db()
 
     db = SessionLocal()
@@ -101,14 +67,14 @@ def seed():
             if not exists:
                 db.add(Part(
                     class_id=class_id,
-                    part_name=info["name"],
                     serial_number=info["serial"],
+                    part_desc=info["name"],
                 ))
                 inserted += 1
         db.commit()
     finally:
         db.close()
-    print(f"[Done] Seeding complete: {inserted} parts inserted.")
+    print(f"[INFO] Seeding complete: {inserted} parts inserted.")
 
 
 if __name__ == "__main__":
