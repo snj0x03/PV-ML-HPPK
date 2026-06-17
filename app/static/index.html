@@ -41,12 +41,12 @@
                     <img id="imagePreview" alt="Part image" style="max-width:100%; max-height:280px; object-fit:contain; display:none; margin-top:1rem; border-radius:8px;">
                     <input type="file" id="fileInput" accept="image/*" style="display:none;">
                 </div>
-		<button class="btn btn-primary" id="analyzeBtn" onclick="uploadAndAnalyze()">
+		<button class="btn btn-primary" id="analyzeBtn" onclick="AnalyzeDetection()">
 		    <span id="btnText">Start Detection</span>
 		    <div class="spinner" id="spinner"></div>
 		</button>
 		<br>
-		<button class="btn btn-primary" id="analyzeClsBtn">
+		<button class="btn btn-primary" id="analyzeClsBtn" onclick="AnalyzeClassification()">
 		    <span id="btnText">Start Classification</span>
 		    <div class="spinner" id="spinner"></div>
 		</button>
@@ -54,8 +54,7 @@
 
             <div class="card result-card" id="resultCard">
                 <div class="result-header">
-                    <h2>Detection Result</h2>
-                    <span class="confidence-badge none" id="confidenceBadge">-</span>
+                    <h2 id="res"></h2>
                 </div>
                 <div class="result-grid" id="resultList">
                     <div class="result-row">
@@ -97,6 +96,7 @@
         const spinner      = document.getElementById('spinner');
         const btnText      = document.getElementById('btnText');
 	const container = document.getElementById('resultList');
+	const res = document.getElementById('res');
 
         let selectedFile    = null;
         let lastDetectionId = null;
@@ -162,7 +162,7 @@
             }
         }
 
-        async function uploadAndAnalyze() {
+        async function AnalyzeDetection() {
             if (!selectedFile) {
                 alert('Please upload an image first.');
                 return;
@@ -179,6 +179,7 @@
                 const data = await response.json();
 		
 		console.log(data);
+		res.textContent = "Detection Results";
 
 		container.textContent = "";
 		for(let i = 0; i < data.conf.length; i++) {
@@ -191,9 +192,52 @@
 		    `;
 		    container.insertAdjacentHTML("beforeend", formattedString);
 		}
-		console.log(data.conf);
-		console.log(data.cls);
 
+		if (data.image) {
+                    imagePreview.src = 'data:image/jpeg;base64,' + data.image;
+                    imagePreview.style.display = 'block';
+                }
+            } catch (error) {
+                alert('A server error occurred. Please try again.');
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+	
+        async function AnalyzeClassification() {
+            if (!selectedFile) {
+                alert('Please upload an image first.');
+                return;
+            }
+
+            setLoading(true);
+            resultCard.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/classify', { method: 'POST', body: formData });
+                const data = await response.json();
+		
+		console.log(data);
+
+		res.textContent = "Classification Results (Top 5)";
+
+		container.textContent = "";
+
+		for(let i = 0; i < data.conf.length; i++) {
+		    const formattedString = `
+			<div class="result-row">
+		            <span class="result-value">${(100*data.conf[i]).toFixed(2)}%</span>
+			    <span class="result-value mono">${data.cls[i]}</span>
+			    <span class="result-value">${data.message[i]}</span>
+			</div>
+		    `;
+		    container.insertAdjacentHTML("beforeend", formattedString);
+		}
 
 		if (data.image) {
                     imagePreview.src = 'data:image/jpeg;base64,' + data.image;
