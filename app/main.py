@@ -71,7 +71,7 @@ async def detect(file: UploadFile = File(...), db: Session = Depends(get_db)):
         image.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-        results = model_det(image, conf=0.25)
+        results = model_det(image, conf=0.05)
 
         plotted_bgr = results[0].plot()
         plotted_rgb = Image.fromarray(plotted_bgr[..., ::-1])
@@ -131,7 +131,7 @@ async def classify(file: UploadFile = File(...), db: Session = Depends(get_db)):
         image.save(buffered, format="JPEG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-        results = model_cls(image, conf=0.25)
+        results = model_cls(image, conf=0.05)
 
         plotted_bgr = results[0].plot()
         plotted_rgb = Image.fromarray(plotted_bgr[..., ::-1])
