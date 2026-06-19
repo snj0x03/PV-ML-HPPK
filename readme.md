@@ -2,7 +2,6 @@
 
 HP LaserJet printer part identification system using YOLOv11 object detection. Upload a photo of a printer part; the system detects it, draws a bounding box, and returns the part name, serial number, and confidence score.
 
----
 
 ## Table of Contents
 
@@ -16,7 +15,6 @@ HP LaserJet printer part identification system using YOLOv11 object detection. U
 - [Model](#model)
 - [Part Classes](#part-classes)
 
----
 
 ## Overview
 
@@ -26,7 +24,6 @@ The system is built around three components:
 2. **FastAPI backend** (`app/main.py`) — receives image uploads, runs inference, annotates the image with bounding boxes, logs results to the database, and returns structured JSON.
 3. **SQLite database** (`app/data/local.db`) — maps YOLO class IDs to real part names and serial numbers. Auto-created on first run.
 
----
 
 ## Project Structure
 
@@ -56,24 +53,21 @@ PV-ML-HPPK/
 
 > `app/data/local.db` and `app/data/detection_images/` are created automatically on first run and are not tracked in git. Both are volume-mounted in Docker — data persists across container restarts.
 
----
 
 ## Requirements
 
 - Python 3.10+
-- `models/best.pt` — trained YOLOv11 weights (obtain separately)
 
 Key packages:
 
 | Package | Purpose |
 |---|---|
-| `ultralytics` | YOLOv11 model inference |
+| `ultralytics` | YOLO model inference |
 | `fastapi` | Web framework |
 | `uvicorn` | ASGI server |
 | `sqlalchemy` | ORM / SQLite |
 | `pillow` | Image processing |
 
----
 
 ## Quick Start (Docker)
 
@@ -106,8 +100,6 @@ To stop:
 ```bash
 docker compose stop 
 ```
-
----
 
 ## Local Development Setup
 
@@ -157,7 +149,6 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 Open `http://localhost:8000`.
 
----
 
 ## API Reference
 
@@ -165,7 +156,6 @@ Open `http://localhost:8000`.
 
 Returns the frontend HTML page.
 
----
 
 ### `POST /detect`
 
@@ -194,7 +184,6 @@ Run inference on an uploaded image.
 | `conf` | List of YOLO confidence score (all bounding boxes) |
 | `cls` | List of part serial number |
 | `message` | List of part description |
----
 
 ### `POST /classify`
 
@@ -240,7 +229,6 @@ curl -X DELETE http://localhost:8000/admin/clear-db
 }
 ```
 
----
 
 ## Database
 
@@ -254,17 +242,15 @@ The SQLite database (`app/data/local.db`) contains four tables:
 
 The database is created and seeded automatically on startup. No manual setup required.
 
----
 
 ## Model
 
-`models/best.pt` is a YOLOv11 checkpoint trained on HP LaserJet printer part images. It is **not tracked in this repository** — place it manually before running.
+`models/*.pt` are YOLO models trained on HP LaserJet printer part images. 
 
-- Inference threshold: `conf=0.01` (low threshold to maximize recall)
+- Inference threshold: `conf=0.05` (low threshold to maximize recall)
 - All detected bounding boxes are saved to DB; the highest-confidence box is shown in the UI
-- Result images (with bounding boxes drawn) are saved to `app/detection_images/`
+- Result images (with bounding boxes drawn) are saved to `app/data/detection_images/`
 
----
 
 ## Part Classes
 
