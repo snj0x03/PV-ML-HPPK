@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HP Parts Recognition AI System</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css"> 
 </head>
 <body>
 
@@ -45,10 +45,9 @@
 		    <span id="btnText">Start Detection</span>
 		    <div class="spinner" id="spinner"></div>
 		</button>
-		<br>
 		<button class="btn btn-primary" id="analyzeClsBtn" onclick="AnalyzeClassification()">
-		    <span id="btnText">Start Classification</span>
-		    <div class="spinner" id="spinner"></div>
+		    <span id="btnText2">Start Classification</span>
+		    <div class="spinner" id="spinner2"></div>
 		</button>
             </div>
 
@@ -57,22 +56,6 @@
                     <h2 id="res"></h2>
                 </div>
                 <div class="result-grid" id="resultList">
-                    <div class="result-row">
-                        <span class="result-label">Part Name</span>
-                        <span class="result-value" id="partName">-</span>
-                    </div>
-                    <div class="result-row">
-                        <span class="result-label">SVC Part No.</span>
-                        <span class="result-value mono" id="serialNumber">-</span>
-                    </div>
-                    <div class="result-row">
-                        <span class="result-label">Accuracy</span>
-                        <span class="result-value" id="confidence">-</span>
-                    </div>
-                    <div class="result-row">
-                        <span class="result-label">Status</span>
-                        <span class="result-value" id="message">-</span>
-                    </div>
                 </div>
             </div>
 
@@ -97,6 +80,9 @@
         const btnText      = document.getElementById('btnText');
 	const container = document.getElementById('resultList');
 	const res = document.getElementById('res');
+        const analyzeClsBtn   = document.getElementById('analyzeClsBtn');
+        const btnText2      = document.getElementById('btnText2');
+        const spinner2      = document.getElementById('spinner2');
 
         let selectedFile    = null;
         let lastDetectionId = null;
@@ -144,22 +130,10 @@
             btnText.textContent = on ? 'Analyzing...' : 'Start Detection';
         }
 
-        function setBadge(confidence) {
-            const badge = document.getElementById('confidenceBadge');
-            badge.className = 'confidence-badge';
-            if (confidence >= 0.7) {
-                badge.classList.add('high');
-                badge.textContent = 'High ' + (confidence * 100).toFixed(1) + '%';
-            } else if (confidence >= 0.4) {
-                badge.classList.add('medium');
-                badge.textContent = 'Medium ' + (confidence * 100).toFixed(1) + '%';
-            } else if (confidence > 0) {
-                badge.classList.add('low');
-                badge.textContent = 'Low ' + (confidence * 100).toFixed(1) + '%';
-            } else {
-                badge.classList.add('none');
-                badge.textContent = 'Not Detected';
-            }
+        function setLoading2(on) {
+            analyzeClsBtn.disabled = on;
+            spinner2.style.display = on ? 'block' : 'none';
+            btnText2.textContent = on ? 'Analyzing...' : 'Start Detection';
         }
 
         async function AnalyzeDetection() {
@@ -187,7 +161,7 @@
 			<div class="result-row">
 		            <span class="result-value">${(100*data.conf[i]).toFixed(2)}%</span>
 			    <span class="result-value mono">${data.cls[i]}</span>
-			    <span class="result-value">${data.message[i]}</span>
+			    <span>${data.message[i]}</span>
 			</div>
 		    `;
 		    container.insertAdjacentHTML("beforeend", formattedString);
@@ -212,7 +186,7 @@
                 return;
             }
 
-            setLoading(true);
+            setLoading2(true);
             resultCard.style.display = 'block';
 
             const formData = new FormData();
@@ -233,7 +207,7 @@
 			<div class="result-row">
 		            <span class="result-value">${(100*data.conf[i]).toFixed(2)}%</span>
 			    <span class="result-value mono">${data.cls[i]}</span>
-			    <span class="result-value">${data.message[i]}</span>
+			    <span>${data.message[i]}</span>
 			</div>
 		    `;
 		    container.insertAdjacentHTML("beforeend", formattedString);
@@ -247,7 +221,7 @@
                 alert('A server error occurred. Please try again.');
                 console.error(error);
             } finally {
-                setLoading(false);
+                setLoading2(false);
             }
         }
     </script>

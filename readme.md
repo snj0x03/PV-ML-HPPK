@@ -24,7 +24,7 @@ The system is built around three components:
 
 1. **YOLOv11 model** (`models/best.pt`) — trained to detect 40 HP LaserJet printer part classes from images.
 2. **FastAPI backend** (`app/main.py`) — receives image uploads, runs inference, annotates the image with bounding boxes, logs results to the database, and returns structured JSON.
-3. **SQLite database** (`app/printer_parts.db`) — maps YOLO class IDs to real part names and serial numbers. Auto-created on first run.
+3. **SQLite database** (`app/data/local.db`) — maps YOLO class IDs to real part names and serial numbers. Auto-created on first run.
 
 ---
 
@@ -50,7 +50,7 @@ PV-ML-HPPK/
 └── readme.md
 ```
 
-> `app/printer_parts.db` and `app/detection_images/` are created automatically on first run and are not tracked in git. Both are volume-mounted in Docker — data persists across container restarts.
+> `app/data/local.db` and `app/data/detection_images/` are created automatically on first run and are not tracked in git. Both are volume-mounted in Docker — data persists across container restarts.
 
 ---
 
@@ -100,7 +100,7 @@ http://localhost:8000
 To stop:
 
 ```bash
-docker compose down
+docker compose stop 
 ```
 
 ---
@@ -248,7 +248,7 @@ curl -X DELETE http://localhost:8000/admin/clear-db
 
 ## Database
 
-The SQLite database (`app/printer_parts.db`) contains four tables:
+The SQLite database (`app/data/local.db`) contains four tables:
 
 | Table | Description |
 |---|---|
