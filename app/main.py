@@ -113,7 +113,7 @@ async def detect(file: UploadFile = File(...), db: Session = Depends(get_db)):
         db.commit()
         db.refresh(log)
 
-        return {"image": img_str, "conf": conf, "cls": srl, "message": msg}
+        return {"image": img_str, "conf": conf, "cls": srl, "desc": msg}
 
     except Exception as e:
         print(f"[predict] error: {str(e)}")
@@ -170,7 +170,7 @@ async def classify(file: UploadFile = File(...), db: Session = Depends(get_db)):
         db.commit()
         db.refresh(log)
 
-        return {"image": img_str, "conf": conf, "cls": classes, "message": msg}
+        return {"image": img_str, "conf": conf, "cls": classes, "desc": msg}
 
     except Exception as e:
         print(f"[predict] error: {str(e)}")
