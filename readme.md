@@ -22,7 +22,7 @@ HP LaserJet printer part identification system using YOLOv11 object detection. U
 
 The system is built around three components:
 
-1. **YOLOv11 model** (`models/best.pt`) — trained to detect 40 HP LaserJet printer part classes from images.
+1. **YOLO models** (`models/*.pt`) — trained to detect and classify 40 HP LaserJet printer part classes from images.
 2. **FastAPI backend** (`app/main.py`) — receives image uploads, runs inference, annotates the image with bounding boxes, logs results to the database, and returns structured JSON.
 3. **SQLite database** (`app/data/local.db`) — maps YOLO class IDs to real part names and serial numbers. Auto-created on first run.
 
@@ -43,7 +43,11 @@ PV-ML-HPPK/
 │       ├── hp_logo.png
 │       └── woosong_logo.png
 ├── models/
-│   └── best.pt          # YOLOv11 weights (not tracked in git — place manually)
+│   └── *.pt             # YOLO weights 
+├── notebooks/
+│   └── *.ipynb          # YOLO jupyter notebooks 
+├── scripts/
+│   └── *.py             # Scripts used for dataset preparation 
 ├── docker-compose.yml
 ├── .dockerignore
 ├── requirements.txt
@@ -78,7 +82,7 @@ The recommended way to run the service. Requires Docker and Docker Compose.
 **1. Place the model file**
 
 ```
-models/best.pt
+models/*.pt
 ```
 
 **2. Start the service**
@@ -133,7 +137,7 @@ pip install -r requirements.txt
 **4. Place the model file**
 
 ```
-models/best.pt
+models/*.pt
 ```
 
 **5. Initialize the database**
@@ -143,7 +147,7 @@ cd app
 python seed_db.py
 ```
 
-This creates `printer_parts.db` and inserts 40 HP part entries. Safe to re-run — existing entries are skipped.
+This creates `/data/local.db` and inserts 40 HP part entries. Safe to re-run — existing entries are skipped.
 
 **6. Start the server**
 
@@ -163,7 +167,7 @@ Returns the frontend HTML page.
 
 ---
 
-### `POST /predict`
+### `POST /detect`
 
 Run inference on an uploaded image.
 
@@ -177,56 +181,48 @@ Run inference on an uploaded image.
 
 ```json
 {
-  "detection_id": 42,
-  "part_name": "SVC_HP LaserJet Fuser 220V Kit",
-  "serial_number": "5PN77-67001",
-  "confidence": 0.9452,
-  "message": "Part identified successfully.",
-  "image_base64": "<base64-encoded JPEG with bounding boxes>"
+  "image": "<base64-encoded JPEG with bounding boxes>"
+  "conf": "[0.98, 0.45]"
+  "cls": "[5RC00-67001, JC93-01467A]"
+  "message": "[HP LaserJet ADF Maintenance Kit, Right door switch assembly]"
 }
 ```
 
 | Field | Description |
 |---|---|
-| `detection_id` | ID of the saved detection log (used for feedback) |
-| `part_name` | Detected HP part name, or `"Unknown"` if nothing detected |
-| `serial_number` | SVC Part Number from DB, or `"N/A"` |
-| `confidence` | YOLOv11 confidence score (0.0–1.0) |
-| `message` | Status message |
 | `image_base64` | Annotated image with bounding boxes (original if no detection) |
-
+| `conf` | List of YOLO confidence score (all bounding boxes) |
+| `cls` | List of part serial number |
+| `message` | List of part description |
 ---
 
-### `POST /feedback`
+### `POST /classify`
 
-Submit a flag for an incorrect detection result.
+Run inference on an uploaded image.
 
-**Request** — `application/json`
-
-```json
-{
-  "detection_id": 42,
-  "is_correct": false,
-  "comment": "This is actually a fuser unit, not a drum."
-}
-```
+**Request** — `multipart/form-data`
 
 | Field | Type | Description |
 |---|---|---|
-| `detection_id` | int | ID from `/predict` response |
-| `is_correct` | bool | Whether the result was correct |
-| `comment` | string (optional) | Description of the error |
+| `file` | file | Image file (JPEG, PNG, WEBP) |
 
 **Response**
 
 ```json
 {
-  "message": "Feedback saved.",
-  "feedback_id": 7
+  "image": "<base64-encoded JPEG with bounding boxes>"
+  "conf": "[0.98, 0.45]"
+  "cls": "[5RC00-67001, JC93-01467A]"
+  "message": "[HP LaserJet ADF Maintenance Kit, Right door switch assembly]"
 }
 ```
 
----
+| Field | Description |
+|---|---|
+| `image_base64` | Annotated image with bounding boxes (original if no detection) |
+| `conf` | List of YOLO confidence score (Top 5) |
+| `cls` | List of part serial number |
+| `message` | List of part description |
 
 ### `DELETE /admin/clear-db`
 
@@ -253,9 +249,8 @@ The SQLite database (`app/data/local.db`) contains four tables:
 | Table | Description |
 |---|---|
 | `parts` | 40 HP part entries (class_id, part_name, serial_number) |
-| `detection_logs` | One record per `/predict` call — filename, class, confidence, result image path |
-| `bounding_boxes` | All bounding boxes from each detection (YOLO normalized xywh format) |
-| `detection_feedbacks` | User-submitted flags for incorrect results |
+| `detection_logs` | One record per `/detect` call — image URL, JSON of {class, confidence, bbox} |
+| `classification_logs` | One record per `/classify` call — image URL, JSON of {class, confidence} |
 
 The database is created and seeded automatically on startup. No manual setup required.
 
