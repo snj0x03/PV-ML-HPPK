@@ -174,7 +174,7 @@ Run inference on an uploaded image.
   "image": "<base64-encoded JPEG with bounding boxes>"
   "conf": "[0.98, 0.45]"
   "cls": "[5RC00-67001, JC93-01467A]"
-  "message": "[HP LaserJet ADF Maintenance Kit, Right door switch assembly]"
+  "desc": "[HP LaserJet ADF Maintenance Kit, Right door switch assembly]"
 }
 ```
 
@@ -202,7 +202,7 @@ Run inference on an uploaded image.
   "image": "<base64-encoded JPEG with bounding boxes>"
   "conf": "[0.98, 0.45]"
   "cls": "[5RC00-67001, JC93-01467A]"
-  "message": "[HP LaserJet ADF Maintenance Kit, Right door switch assembly]"
+  "desc": "[HP LaserJet ADF Maintenance Kit, Right door switch assembly]"
 }
 ```
 
